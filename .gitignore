@@ -1,3 +1,7 @@
+# VitePress's build and cache directories
+.vitepress/dist/
+.vitepress/cache/
+
 # Logs
 logs
 *.log
