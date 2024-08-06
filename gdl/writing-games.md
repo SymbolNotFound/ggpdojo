@@ -1,4 +1,4 @@
-# Writing Games in Game Description Language (GDL)
+# Writing Games in the Game Description Language (GDL)
 
 GDL was created by Stanford University Logic Group to aid in competitions for
 General Game Playing research.  It comes in two formats -- prefix notation
@@ -42,7 +42,7 @@ You can also check your games through the web UI for a
 or run your code and UI through the
 [style checker](http://gamemaster.stanford.edu/homepage/stylechecker.php)
 
-## Basic Structure of a Game
+## Basic Structure of a Game {#basic-structure}
 
 Games do not have a required ordering but there is a standard convention for
 which sections appear in top-to-bottom order:
@@ -64,8 +64,12 @@ doubled or tripled, as well as being used as a horizontal-rule to separate
 entire sections.  You won't see it mentioned at all in the documentation, and in
 example games you will always see it doubled or tripled (likewise for KIF
 formatted games where the comment character is `;` -- only one is necessary but
-they are almost always tripled, sometimes doubled).  You have to look at the
-grammar definition and unit tests for ggp.org's Java code to know otherwise.
+they are almost always tripled, sometimes doubled).  You would have to look at
+the grammar definition and unit tests for ggp.org's Java code or assume this
+from datalog's handling of `;` to know otherwise.
+
+Other punctuation includes `(` `)` for wrapping the parameters of relations,
+`,` for separating those parameters when there are more than one, 
 
 The rest of this tutorial is organized in the same order as these sections:
 
@@ -75,8 +79,8 @@ The rest of this tutorial is organized in the same order as these sections:
  - followed by the [actions](#actions) available to players,
    based on the current game state
  - at least one [terminal](#terminal) rule
-   and associated [goal](#goals) relations
- - and finally any [views](#views) and explicit [enumerations](#enums)
+   and one or more [goal](#goals) relations for determining rewards
+ - and finally any [views and enumerations](#views-enums)
 
 That last part is due to GDL not having any arithmetic capacity, all numeric
 representation and processing must be defined explicitly (typically by a form
@@ -87,14 +91,157 @@ is not so easily done without running amok with non-decidability demons, but
 that's a topic for a different document.
 
 
-## A very simple game (Janken)
+## A very simple game (Janken) {#rules-janken}
 
 Before getting into the particulars of each of these sections, let's examine a
 very simple game: rock-paper-scissors, a.k.a. Roshambo, a.k.a. Janken.
 
 ```gdl-hrf
+%% A two-player game, players move simultaneously in GDL.
+role(left)
+role(right)
+
+%% The `show` relation connects a player to their hand selection.
+base(show(Role, Hand)) :- role(Role) & hand(Hand)
+
+%% Each player's only available move is to choose one of the hand gestures.
+action(play(Hand)) :- hand(Hand)
+legal(play(Hand))
+
+next(show(Player, Hand)) :- does(Player, play(Hand))
+
+%% The game ends when players have played different hands.
+terminal :-
+  show(left, Lhand) &
+  show(right, Rhand) &
+  distinct(Lhand, Rhand)
+
+%% Game winnings are all-or-nothing, there is no 'draw' outcome
+goal(Player, 100) :- win(Player)
+goal(Player, 0) :- role(Player) & ~win(Player)
+
+%% View definition for determining if a player role has won.
+win(Role) :- role(Role) &
+  role(Other) & distinct(Role, Other) &
+  show(Role, RHand) & show(Other, OHand) &
+  better(RHand, OHand)
+
+%% Enumeration of available hand gestures.
+hand(ROCK)
+hand(PAPER)
+hand(SCISSORS)
+
+%% Relative importance of hand gestures (for victory conditions).
+better(PAPER, ROCK)
+better(SCISSORS, PAPER)
+better(ROCK, SCISSORS)
+```
+
+The simplicity of the game rules and the symmetry of game play makes this a good
+example to start with, but don't worry if the above looks a little confusing
+even if you've seen other programming languages, and even if you've seen other
+variants of logic programming languages like Prolog.  The language is most like
+`datalog` with a few special keywords for enabling turn-based gameplay.
+
+A GDL runtime will assume simultaneous play, which for the above example is
+convenient as both players will show their hand at the same time.  The game
+manager can withold each player's move until they are both collected and then
+decide the outcome (keep playing, or declare a victor).  For games where players
+alternate turns, this can be accommodated by giving one player control with a
+special relation that updates on each turn (an example of this is given at the
+end, using Tic-Tac-Toe).
+
+There are only about a dozen keywords (compared to about 120+ keywords in ZRF).
+This may seem a deficiency, and indeed there are no graphics/sounds/animation
+keywords for assisting in rendering the game UI, but the simplicity of syntax
+actually contains the potential for a large variety of game types.  Let's look
+at each part of the game to see how a full game definition is expressed.
+
+
+### Players {#roles}
+
+Perhaps the most important part of any game: the players.  Every GDL definition
+is explicit about the number of players involved and what kinds of actions they
+can perform.  Games with a variable number of players (like most card games)
+will need to have separate definitions for 3-, 4-, 5-... player games.
+
+Player roles are specified with the [role](/gdl/syntax/role) keyword which takes
+a single argument, used for identifying the role:
+
+```gdl-hrf
+role(robot)
+```
+
+In GDL-II there is a special role named `random` which can be used to provide
+non-deterministic selection.  For example, a roll of a pair of six-sided dice
+could define valid actions for this role and select from them arbitrarily as
+part of each turn.
+
+```gdl-hrf
+role(random)
+```
+
+This behavior can actually be added without any changes needed to the runtime
+because the default behavior of the Game Manager when an invalid action (or a
+timeout in responding) is to chose randomly among the valid actions for that
+player.  The server may recognize this `random` name and avoid the need for
+waiting until timeout or for sending intentionally bogus actions on behalf of
+this player, but in either case the other players can assume `random` will take
+actions in a uniformly distributed random selection.
+
+
+### Base relations {#base}
+
+TODO
+
+[`base`](/gdl/syntax/base)
+
+
+### Initialization {#init}
+
+TODO
+
+[`init`](/gdl/syntax/init)
+
+
+### Action specifications {#actions}
+
+TODO
+
+[`input`](/gdl/syntax/input)
+
+[`does`](/gdl/syntax/does)
+
+[`next`](/gdl/syntax/next)
+
+
+### Terminal conditions {#terminal}
+
+TODO
+
+[`terminal`](/gdl/syntax/terminal)
+
+
+### Goals / Rewards {#goals}
+
+TODO
+
+[`goal`](/gdl/syntax/goal)
+
+
+### Views and Enumerations {#views-enums}
+
+TODO
+
+
+## Tic-Tac-Toe game definition {#rules-tic-tac-toe}
+
+Let's take a look at another game definition, this time one where the players
+alternate turns.  This is also the game used in other "writing games" tutorials
+here, so it makes for a good comparison.
+
+```gdl-hrf
 
 ```
 
-TODO
 
