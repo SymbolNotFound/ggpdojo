@@ -143,6 +143,29 @@ even if you've seen other programming languages, and even if you've seen other
 variants of logic programming languages like Prolog.  The language is most like
 `datalog` with a few special keywords for enabling turn-based gameplay.
 
+If you're coming from another language and are used to seeing `if (...) { ... }`
+conditional expressions, the above may look very weird indeed.  There are three
+operators that stand out: `:-`, `&` and `~`.  The other thing to pay attention
+to is the initial letter of symbols (atoms) being uppercase or lowercase.  If
+the first letter is Uppercase then that symbol is a variable and may be replaced
+with a more concrete value (either a lowercase symbol or a number).  More about
+that in the section about [unification](#unification).
+
+ - `~` is the boolean negation operator, so `~q(Y)` means that there is no
+   evidence that `q(Y)` is true.  This means that the game rules don't have to
+   indicate when `~q(Y)` is true, only when `q(Y)` holds and the rest is
+   determined by what is called "Negation as Failure" (NaF).
+
+ - `&` is as you have probably guessed, an 'and'ing of terms, or conjunction.
+   There may be both positive and negated terms combined with `&` and there is
+   no limit to how many terms may be and-ed together, but you will only see it
+   on the right-hand side of an `:-` operator.
+
+ - `:-` is the entailment operator and `p(X) :- q(Y)` means `p(X)` is true when
+   `q(Y)` is true.  You may have negated terms on the right hand side, but GDL
+   (and "safe" expressions in datalog) have the requirement that any variable
+   in a negated term must also appear in a positive term elsewhere in the rule.
+
 A GDL runtime will assume simultaneous play, which for the above example is
 convenient as both players will show their hand at the same time.  The game
 manager can withold each player's move until they are both collected and then
@@ -154,8 +177,9 @@ end, using Tic-Tac-Toe).
 There are only about a dozen keywords (compared to about 120+ keywords in ZRF).
 This may seem a deficiency, and indeed there are no graphics/sounds/animation
 keywords for assisting in rendering the game UI, but the simplicity of syntax
-actually contains the potential for a large variety of game types.  Let's look
-at each part of the game to see how a full game definition is expressed.
+actually contains the potential for a large variety of game types.  Now that
+we've covered some of the basics of the syntax, let's look at each part of the
+game to see how a full game definition is expressed.
 
 
 ### Players {#roles}
@@ -179,15 +203,25 @@ part of each turn.
 
 ```gdl-hrf
 role(random)
+
+d(1)
+d(2)
+d(3)
+d(4)
+d(5)
+d(6)
+
+action(roll(X, Y)) :- d(X) & d(Y)
+next(rolled(X, Y)) :- does(random, roll(X, Y))
 ```
 
-This behavior can actually be added without any changes needed to the runtime
-because the default behavior of the Game Manager when an invalid action (or a
+This behavior can actually be added without adding any changes to the runtime
+because the default behavior of the Game Manager with an invalid action (or a
 timeout in responding) is to chose randomly among the valid actions for that
 player.  The server may recognize this `random` name and avoid the need for
 waiting until timeout or for sending intentionally bogus actions on behalf of
 this player, but in either case the other players can assume `random` will take
-actions in a uniformly distributed random selection.
+actions by selecting from available options uniformly, with equal likelihood.
 
 
 ### Base relations {#base}
